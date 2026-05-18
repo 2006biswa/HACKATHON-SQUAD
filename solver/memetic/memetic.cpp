@@ -18,19 +18,31 @@ namespace solver {
     }
 
     void MemeticAlgorithm::initialize_population(const core::Graph& g) {
-        // TODO: Loop 'population_size' times.
-        // TODO: For each time, greedily build a valid team but randomly pick from top 3 candidates.
-        // TODO: Save the team into the population array.
-        // Create an array of all coder IDs [1, 2, ..., N]
         std::vector<int> all_nodes(g.num_nodes);
         std::iota(all_nodes.begin(), all_nodes.end(), 1);
 
+        // Precompute base ROI for each node: Weight / (Degree + 1)
+        std::vector<double> base_roi(g.num_nodes + 1);
+        for (int u = 1; u <= g.num_nodes; ++u) {
+            double degree = g.offset[u + 1] - g.offset[u];
+            base_roi[u] = g.skills[u] / (degree + 1.0);
+        }
+
         for (int i = 0; i < population.size(); ++i) {
-            // Randomly shuffle the order we look at coders
-            std::shuffle(all_nodes.begin(), all_nodes.end(), rng);
+            std::vector<double> noisy_roi = base_roi;
+            std::uniform_real_distribution<double> noise_dist(0.5, 1.5); // +/- 50% noise
+            
+            for (int u = 1; u <= g.num_nodes; ++u) {
+                noisy_roi[u] *= noise_dist(rng);
+            }
+
+            std::vector<int> candidates = all_nodes;
+            std::sort(candidates.begin(), candidates.end(), [&noisy_roi](int a, int b) {
+                return noisy_roi[a] > noisy_roi[b];
+            });
             
             // Greedily add coders to the team if they have no conflicts
-            for (int u : all_nodes) {
+            for (int u : candidates) {
                 if (population[i].state.can_add(u)) {
                     population[i].state.add_coder(g, u);
                 }
@@ -105,11 +117,14 @@ namespace solver {
     }
 
     void MemeticAlgorithm::local_search(const core::Graph& g, Individual& ind) {
-        // TODO: Rapidly scan the team for 1-opt and 2-opt swaps.
-        // TODO: E.g., If we remove coder A, can we safely add coders B and C?
-        bool improved = true;
-        while (improved) {
-            improved = false;
+        bool active = true;
+        int plateau_steps = 0;
+        const int MAX_PLATEAU = 20; // Limit sideways moves to prevent infinite loops
+        std::uniform_real_distribution<double> plateau_prob(0.0, 1.0);
+
+        while (active) {
+            active = false;
+            bool strict_improvement = false;
             
             // Scan all coders to see if we can perform a 1-opt or 2-opt swap
             for (int u = 1; u <= g.num_nodes; ++u) {
@@ -120,13 +135,13 @@ namespace solver {
                 // 0-opt: Just add it if it's free! (Makes the set maximal)
                 if (conflicts == 0) {
                     ind.state.add_coder(g, u);
-                    improved = true;
+                    strict_improvement = true;
+                    active = true;
                 }
-                // 1-opt: Coder 'u' has exactly 1 enemy in the team.
+                // 1-opt (1-for-1 swap): Coder 'u' has exactly 1 enemy in the team.
                 else if (conflicts == 1) {
                     int enemy_in_team = -1;
-                    int start = g.offset[u];
-                    int end = g.offset[u + 1];
+                    int start = g.offset[u], end = g.offset[u + 1];
                     for (int j = start; j < end; ++j) {
                         int v = g.edges[j];
                         if (ind.state.is_in_team[v]) {
@@ -135,11 +150,50 @@ namespace solver {
                         }
                     }
                     
-                    // If coder 'u' is better than the enemy, swap them!
-                    if (enemy_in_team != -1 && g.skills[u] > g.skills[enemy_in_team]) {
-                        ind.state.remove_coder(g, enemy_in_team);
-                        ind.state.add_coder(g, u);
-                        improved = true;
+                    if (enemy_in_team != -1) {
+                        int64_t delta = g.skills[u] - g.skills[enemy_in_team];
+                        if (delta > 0) {
+                            ind.state.remove_coder(g, enemy_in_team);
+                            ind.state.add_coder(g, u);
+                            strict_improvement = true;
+                            active = true;
+                        } else if (delta == 0 && !strict_improvement && plateau_steps < MAX_PLATEAU && plateau_prob(rng) < 0.1) {
+                            // Plateau search: occasionally accept a sideways move
+                            ind.state.remove_coder(g, enemy_in_team);
+                            ind.state.add_coder(g, u);
+                            plateau_steps++;
+                            active = true;
+                        }
+                    }
+                }
+                // 2-opt (2-for-1 swap): Coder 'u' has exactly 2 enemies in the team.
+                else if (conflicts == 2) {
+                    int e1 = -1, e2 = -1;
+                    int start = g.offset[u], end = g.offset[u + 1];
+                    for (int j = start; j < end; ++j) {
+                        int v = g.edges[j];
+                        if (ind.state.is_in_team[v]) {
+                            if (e1 == -1) e1 = v;
+                            else if (e2 == -1) { e2 = v; break; }
+                        }
+                    }
+                    
+                    if (e1 != -1 && e2 != -1) {
+                        int64_t delta = g.skills[u] - (g.skills[e1] + g.skills[e2]);
+                        if (delta > 0) {
+                            ind.state.remove_coder(g, e1);
+                            ind.state.remove_coder(g, e2);
+                            ind.state.add_coder(g, u);
+                            strict_improvement = true;
+                            active = true;
+                        } else if (delta == 0 && !strict_improvement && plateau_steps < MAX_PLATEAU && plateau_prob(rng) < 0.1) {
+                            // Plateau search: occasionally accept a sideways move
+                            ind.state.remove_coder(g, e1);
+                            ind.state.remove_coder(g, e2);
+                            ind.state.add_coder(g, u);
+                            plateau_steps++;
+                            active = true;
+                        }
                     }
                 }
             }
