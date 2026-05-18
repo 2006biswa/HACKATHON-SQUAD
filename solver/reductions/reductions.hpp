@@ -1,9 +1,10 @@
 #pragma once
-#include "graph.hpp"
+#include "../../core/graph/graph.hpp"
 
 namespace solver {
 
     // What this does:
+    //Mathematics pruning to shrink the problem size
     // Kernelization deletes coders from the graph when we can mathematically prove they
     // MUST be in the team, or MUST NOT be in the team.
     // This makes the graph much smaller before we start the Evolutionary loop.
@@ -12,7 +13,7 @@ namespace solver {
         // Execute all reduction rules
         static void apply_reductions(core::Graph& g, std::vector<int>& forced_in, std::vector<int>& forced_out);
 
-    private:
+    private: 
         // Rule 1: If a coder has 0 enemies, they are guaranteed to be in the team!
         static bool reduce_degree_zero(core::Graph& g, std::vector<int>& forced_in);
 
