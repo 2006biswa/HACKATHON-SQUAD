@@ -3,24 +3,44 @@
 namespace core {
 
     State::State(int num_nodes) {
-        // TODO: Initialize arrays to empty
+        //TODO : Initialization
+        is_in_team.resize(num_nodes + 1, 0);
+        conflict_count.resize(num_nodes + 1, 0);
+        current_total_skill = 0;
     }
 
     void State::add_coder(const Graph& g, int u) {
-        // TODO: Mark coder 'u' as in team.
-        // TODO: Loop over 'u's neighbors in the graph and increase their conflict_count.
-        // TODO: Add 'u's skill to current_total_skill.
+        // Only add if they are not already in the team
+        if (is_in_team[u]) return;
+        
+        is_in_team[u] = 1;
+        current_total_skill += g.skills[u];
+        
+        // Rapid O(1) cache-friendly loop over neighbors using CSR
+        int start = g.offset[u];
+        int end = g.offset[u + 1];
+        for (int i = start; i < end; ++i) {
+            int enemy = g.edges[i];
+            conflict_count[enemy]++;
+        }
     }
 
     void State::remove_coder(const Graph& g, int u) {
-        // TODO: Mark coder 'u' as out of team.
-        // TODO: Loop over 'u's neighbors and decrease their conflict_count.
-        // TODO: Subtract 'u's skill from current_total_skill.
+        if (!is_in_team[u]) return;
+        
+        is_in_team[u] = 0;
+        current_total_skill -= g.skills[u];
+        
+        int start = g.offset[u];
+        int end = g.offset[u + 1];
+        for (int i = start; i < end; ++i) {
+            int enemy = g.edges[i];
+            conflict_count[enemy]--;
+        }
     }
 
     bool State::can_add(int u) const {
-        // TODO: Return true if conflict_count[u] == 0 and not already in team
-        return false;
+        return conflict_count[u] == 0 && is_in_team[u] == 0;
     }
 
 } // namespace core
