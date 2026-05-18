@@ -141,7 +141,7 @@ namespace solver {
                     strict_improvement = true;
                     active = true;
                 }
-                // 1-opt (1-for-1 swap): Coder 'u' has exactly 1 enemy in the team.
+                // 1-opt (1-for-1) and 1-for-2 swaps: Coder 'u' has exactly 1 enemy in the team.
                 else if (conflicts == 1) {
                     int enemy_in_team = -1;
                     int start = g.offset[u], end = g.offset[u + 1];
@@ -155,17 +155,47 @@ namespace solver {
                     
                     if (enemy_in_team != -1) {
                         int64_t delta = g.skills[u] - g.skills[enemy_in_team];
+                        bool found_1_for_2 = false;
+
                         if (delta > 0) {
+                            // Standard 1-for-1 strict improvement
                             ind.state.remove_coder(g, enemy_in_team);
                             ind.state.add_coder(g, u);
                             strict_improvement = true;
                             active = true;
-                        } else if (delta == 0 && !strict_improvement && plateau_steps < MAX_PLATEAU && plateau_prob(rng) < 0.1) {
-                            // Plateau search: occasionally accept a sideways move
-                            ind.state.remove_coder(g, enemy_in_team);
-                            ind.state.add_coder(g, u);
-                            plateau_steps++;
-                            active = true;
+                        } else {
+                            // Try a 1-for-2 swap: Can we remove enemy_in_team and add BOTH 'u' and another node 'w'?
+                            int e_start = g.offset[enemy_in_team], e_end = g.offset[enemy_in_team + 1];
+                            for (int k = e_start; k < e_end; ++k) {
+                                int w = g.edges[k];
+                                if (w != u && !ind.state.is_in_team[w] && ind.state.conflict_count[w] == 1) {
+                                    // 'w' also only conflicts with 'enemy_in_team'
+                                    int64_t pair_delta = (g.skills[u] + g.skills[w]) - g.skills[enemy_in_team];
+                                    if (pair_delta > 0) {
+                                        // Ensure 'u' and 'w' don't conflict with each other
+                                        auto u_start_it = g.edges.begin() + g.offset[u];
+                                        auto u_end_it = g.edges.begin() + g.offset[u + 1];
+                                        if (!std::binary_search(u_start_it, u_end_it, w)) {
+                                            // No edge between u and w!
+                                            ind.state.remove_coder(g, enemy_in_team);
+                                            ind.state.add_coder(g, u);
+                                            ind.state.add_coder(g, w);
+                                            strict_improvement = true;
+                                            active = true;
+                                            found_1_for_2 = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // If no 1-for-2 swap was found, try a 1-for-1 plateau swap
+                            if (!found_1_for_2 && delta == 0 && !strict_improvement && plateau_steps < MAX_PLATEAU && plateau_prob(rng) < 0.1) {
+                                ind.state.remove_coder(g, enemy_in_team);
+                                ind.state.add_coder(g, u);
+                                plateau_steps++;
+                                active = true;
+                            }
                         }
                     }
                 }
