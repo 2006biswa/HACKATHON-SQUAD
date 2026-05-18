@@ -1,4 +1,5 @@
 #include "graph.hpp"
+#include <algorithm>
 
 namespace core {
 
@@ -27,6 +28,8 @@ namespace core {
         int current_offset = 0;
         for (int i = 1; i <= num_nodes; ++i) {
             offset[i] = current_offset;
+            // Sort edges to enable fast binary search later
+            std::sort(temp_adj[i].begin(), temp_adj[i].end());
             for (int neighbor : temp_adj[i]) {
                 edges.push_back(neighbor); 
                 current_offset++;
