@@ -3,6 +3,9 @@
 #include <numeric>
 #include <iostream>
 
+
+// Remember as i modified this file and added weight to degree initialisation ,2-1 swaps and also plateau search so our computation work increases
+// so throughput that is the speed decrease it drops from 117 M swaps /sec to 85 M swaps /sec
 namespace solver {
 
     MemeticAlgorithm::MemeticAlgorithm(const core::Graph& g, int population_size) {
