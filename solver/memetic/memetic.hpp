@@ -2,6 +2,7 @@
 #include "../../core/graph/graph.hpp"
 #include "../../core/state/state.hpp"
 #include <vector>
+#include <random>
 
 namespace solver {
 
@@ -17,7 +18,12 @@ namespace solver {
 
         // The current population of teams
         std::vector<Individual> population;
-        
+        //Randomized Greedy Construction (which is Phase 1 of a GRASP algorithm). 
+    private:
+        // High-speed random number generator
+        std::mt19937 rng;
+
+    public:
         // Constructor
         MemeticAlgorithm(const core::Graph& g, int population_size);
 
