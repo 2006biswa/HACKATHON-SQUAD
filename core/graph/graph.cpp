@@ -39,5 +39,40 @@ namespace core {
         temp_adj.shrink_to_fit();
     }
 
+    std::vector<ConnectedComponent> split_into_components(const Graph& g) {
+        // TODO: Run a DFS (Depth First Search) to find disconnected islands of coders
+        std::vector<ConnectedComponent> components;
+        std::vector<bool> visited(g.num_nodes + 1, false);
+
+        // Standard Depth-First Search (DFS) to find all disconnected islands
+        for (int i = 1; i <= g.num_nodes; ++i) {
+            if (!visited[i]) {
+                ConnectedComponent comp;
+                std::vector<int> stack;
+                
+                stack.push_back(i);
+                visited[i] = true;
+
+                while (!stack.empty()) {
+                    int curr = stack.back();
+                    stack.pop_back();
+                    comp.nodes.push_back(curr);
+
+                    // Rapid iteration over neighbors using CSR offsets
+                    int start = g.offset[curr];
+                    int end = g.offset[curr + 1];
+                    for (int j = start; j < end; ++j) {
+                        int neighbor = g.edges[j];
+                        if (!visited[neighbor]) {
+                            visited[neighbor] = true;
+                            stack.push_back(neighbor);
+                        }
+                    }
+                }
+                components.push_back(comp);
+            }
+        }
+        return components;
+    }
 
 } // namespace core
