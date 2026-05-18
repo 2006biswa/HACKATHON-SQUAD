@@ -3,10 +3,11 @@
 #include <cstdint>
 
 namespace core {
-
-    // What this does: 
-    // This is the CSR Graph. Instead of using standard classes, we use flat arrays.
-    // This makes the CPU extremely fast because all data is physically next to each other in RAM.
+   // our first ZERO-ALLOCATion data structure
+    // What this does:  
+    // This is the CSR Graph. Instead of using the adjacency list that is vector<vector<int>>, we use 2-flat arrays one that is the edges (stores rivals) and the other that is pointers.
+    // so  saves our time as cpu does not have to wait for data while cache misses as we always cache hit and use the L1 Cache memory embedded inside the cpu-chip
+    // we love continuous memory allocation as it helps in achieving speed
     class Graph {
     public:
         // The number of coders (N) and rivalries (M)
@@ -17,10 +18,15 @@ namespace core {
         std::vector<int64_t> skills;
 
         // CSR (Compressed Sparse Row) arrays:
-        // offset[i] tells us where coder i's enemies start in the edges array.
+        // offset[i] tells us where coder i's enemies start in the edges array.  //so latsly we will add an element= size of the edges to the offset marking the end
         std::vector<int> offset;
         std::vector<int> edges;
 
+    private:
+        // Temporary staging area when we take the input we don;t get in order the rivalries of 5 so we don;t have any idea how many more enemies of coder 5
+        std::vector<std::vector<int>> temp_adj;
+
+    public:
         // Constructor
         Graph(int n, int m);
 
@@ -35,7 +41,7 @@ namespace core {
     };
 
     // Component Splitting
-    // We want to break the big graph into smaller, disconnected sub-graphs to solve them easily.
+    // Divide and conquer rule in order to be faster we are shrinking the problem and being efficient that is being faster
     struct ConnectedComponent {
         std::vector<int> nodes; // The coders in this sub-graph
     };
